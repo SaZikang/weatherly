@@ -1,0 +1,15 @@
+{
+  "name": "codex-deepseek",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A live weather dashboard with pinned places and an interactive OpenStreetMap view.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "check": "node --check app.js && node --check config.js && node --check server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
