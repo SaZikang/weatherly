@@ -303,6 +303,123 @@
           </p>
         </aside>
 
+        <section class="panel haze-map-panel" aria-labelledby="hazeMapTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark">Malaysia at a glance</p>
+              <h2 id="hazeMapTitle">Haze map</h2>
+            </div>
+            <span class="map-help">Tap a coloured index, or drag the map to check any spot.</span>
+          </div>
+
+          <div class="map-search haze-map-search">
+            <form id="hazeMapSearchForm" role="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"></circle>
+                <path d="m16 16 4 4"></path>
+              </svg>
+              <label class="sr-only" for="hazeMapSearchInput">Find a place on the haze map</label>
+              <input
+                id="hazeMapSearchInput"
+                type="search"
+                placeholder="Find a place on the haze map"
+                autocomplete="off"
+                spellcheck="false"
+                aria-autocomplete="list"
+                aria-controls="hazeMapSearchResults"
+                aria-expanded="false"
+              />
+              <button type="submit" aria-label="Search haze map">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6"></path>
+                </svg>
+              </button>
+            </form>
+            <div
+              class="search-results map-results"
+              id="hazeMapSearchResults"
+              role="listbox"
+              hidden
+            ></div>
+          </div>
+
+          <div
+            class="haze-map"
+            id="hazeMap"
+            tabindex="0"
+            role="application"
+            aria-label="Interactive Malaysia haze map. Click or drag to choose a location, or select a coloured AQI index."
+          >
+            <div class="map-tiles" id="hazeMapTiles" aria-hidden="true"></div>
+            <div class="map-tint" aria-hidden="true"></div>
+            <div class="map-center-pin" aria-hidden="true">
+              <span class="pin-pulse"></span>
+              <span class="pin-stem"></span>
+              <span class="pin-core">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="2.5"></circle>
+                </svg>
+              </span>
+            </div>
+
+            <div class="haze-map-legend">
+              <span>Estimated AQI</span>
+              <div class="haze-map-legend-scale" aria-hidden="true"></div>
+              <div class="haze-map-legend-labels">
+                <span>Good</span>
+                <span>Hazardous</span>
+              </div>
+            </div>
+
+            <div class="map-controls">
+              <button type="button" id="hazeMapZoomIn" aria-label="Zoom in haze map">+</button>
+              <button type="button" id="hazeMapZoomOut" aria-label="Zoom out haze map">−</button>
+              <button type="button" id="hazeMapRecenter" aria-label="Show all of Malaysia">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <circle cx="12" cy="12" r="7"></circle>
+                  <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="map-loading" id="hazeMapLoading" hidden>
+              <span class="mini-loader" aria-hidden="true"></span>
+              <span>Finding this place…</span>
+            </div>
+            <div class="map-offline" id="hazeMapOffline" hidden>
+              <strong>Map tiles need a connection</strong>
+              <span>The AQI labels and search still work.</span>
+            </div>
+
+            <div class="map-place-card">
+              <div>
+                <strong id="hazeMapPlaceName">Malaysia</strong>
+                <span id="hazeMapCoordinates">Tap or drag to choose a location</span>
+              </div>
+              <button type="button" id="hazeMapViewHaze">Check haze</button>
+            </div>
+            <a
+              class="map-attribution"
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+              >© OpenStreetMap</a
+            >
+          </div>
+
+          <div class="haze-map-footer">
+            <span>
+              Translucent zones and index labels are modelled estimates, not official station
+              boundaries.
+            </span>
+            <div>
+              <span id="hazeMapDataStatus">Loading map overlays…</span>
+              <button type="button" id="hazeMapRetry" hidden>Retry overlays</button>
+            </div>
+          </div>
+        </section>
+
         <section class="panel haze-chart-panel" aria-labelledby="hazeChartTitle">
           <div class="panel-heading">
             <div>

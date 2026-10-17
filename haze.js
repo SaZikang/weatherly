@@ -1,4 +1,5 @@
 import { APP_CONFIG } from "./config.js";
+import { createAqiMap } from "./haze-map.js";
 import { createPlaceSearch } from "./place-search.js";
 import {
   buildAirQualityUrl,
@@ -10,12 +11,15 @@ import {
   healthAdvice,
   hourlyWindow,
   MALAYSIAN_CITIES,
+  MALAYSIAN_MAP_POINTS,
 } from "./air-quality.js";
 
 const REVERSE_GEOCODING_API = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 const REQUEST_TIMEOUT = 15_000;
 const AIR_CACHE_MS = 5 * 60_000;
 const RANKING_CACHE_MS = 10 * 60_000;
+const MAP_CACHE_MS = 10 * 60_000;
+const MALAYSIA_MAP_CENTER = { latitude: 4.2, longitude: 109.2 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
 
@@ -65,6 +69,21 @@ const elements = {
   chartLegend: $("#chartLegend"),
   rankingUpdated: $("#rankingUpdated"),
   cityRankingList: $("#cityRankingList"),
+  hazeMapSearchForm: $("#hazeMapSearchForm"),
+  hazeMapSearchInput: $("#hazeMapSearchInput"),
+  hazeMapSearchResults: $("#hazeMapSearchResults"),
+  hazeMap: $("#hazeMap"),
+  hazeMapTiles: $("#hazeMapTiles"),
+  hazeMapOffline: $("#hazeMapOffline"),
+  hazeMapLoading: $("#hazeMapLoading"),
+  hazeMapZoomIn: $("#hazeMapZoomIn"),
+  hazeMapZoomOut: $("#hazeMapZoomOut"),
+  hazeMapRecenter: $("#hazeMapRecenter"),
+  hazeMapPlaceName: $("#hazeMapPlaceName"),
+  hazeMapCoordinates: $("#hazeMapCoordinates"),
+  hazeMapViewHaze: $("#hazeMapViewHaze"),
+  hazeMapDataStatus: $("#hazeMapDataStatus"),
+  hazeMapRetry: $("#hazeMapRetry"),
   toastRegion: $("#toastRegion"),
   screenReaderStatus: $("#screenReaderStatus"),
 };
@@ -81,10 +100,17 @@ const state = {
   rankingController: null,
   ranking: null,
   rankingUpdated: null,
+  map: null,
+  mapController: null,
+  mapPoints: [],
+  mapPickController: null,
+  aqiAnimationFrame: null,
+  displayedAqi: 0,
 };
 
 const airCache = new Map();
 let rankingCache = null;
+let mapPointsCache = null;
 
 init();
 
@@ -104,15 +130,25 @@ function init() {
     onSelect: (place) => goToPlace(place),
   });
 
+  createPlaceSearch({
+    form: elements.hazeMapSearchForm,
+    input: elements.hazeMapSearchInput,
+    results: elements.hazeMapSearchResults,
+    onSelect: (place) => goToPlace(place, { focusMap: true }),
+  });
+
+  setupHazeMap();
   setupInteractions();
   loadHaze(state.location, { updateUrl: true });
   loadCityRanking();
+  loadMapPoints();
 
   window.setInterval(updateLocalTime, 30_000);
   window.setInterval(() => {
     if (document.visibilityState === "visible") {
       loadHaze(state.location, { updateUrl: false, silent: true });
       loadCityRanking();
+      loadMapPoints();
     }
   }, APP_CONFIG.refreshIntervalMs);
 }
@@ -122,6 +158,7 @@ function setupInteractions() {
   elements.refreshButton.addEventListener("click", () => {
     loadHaze(state.location, { updateUrl: false, force: true });
     loadCityRanking(true);
+    loadMapPoints(true);
   });
   elements.hazeErrorRetry.addEventListener("click", () => {
     loadHaze(state.location, { updateUrl: false, force: true });
@@ -132,6 +169,7 @@ function setupInteractions() {
     showToast("Back online. Refreshing the haze estimate.");
     loadHaze(state.location, { updateUrl: false, force: true });
     loadCityRanking(true);
+    loadMapPoints(true);
   });
 
   window.addEventListener("offline", () => {
@@ -149,6 +187,139 @@ function setupInteractions() {
       loadHaze(state.location, { updateUrl: false, silent: true });
     }
   });
+}
+
+function setupHazeMap() {
+  const initialZoom =
+    window.innerWidth <= 680 ? 4 : window.innerWidth <= 1000 ? 5 : 6;
+  state.map = createAqiMap({
+    container: elements.hazeMap,
+    tiles: elements.hazeMapTiles,
+    offline: elements.hazeMapOffline,
+    center: MALAYSIA_MAP_CENTER,
+    zoom: initialZoom,
+    minZoom: 4,
+    maxZoom: 12,
+    onCenterChange: updateMapCard,
+    onLocationPick: handleMapLocationPick,
+    onPointSelect: (point) => {
+      goToPlace(point, { focusMap: true });
+    },
+  });
+
+  elements.hazeMapZoomIn.addEventListener("click", () => state.map.zoomIn());
+  elements.hazeMapZoomOut.addEventListener("click", () => state.map.zoomOut());
+  elements.hazeMapRecenter.addEventListener("click", () => state.map.recenter());
+  elements.hazeMapViewHaze.addEventListener("click", () => {
+    const center = state.map.getCenter();
+    handleMapLocationPick(center);
+  });
+  elements.hazeMapRetry.addEventListener("click", () => loadMapPoints(true));
+  updateMapCard({
+    ...MALAYSIA_MAP_CENTER,
+    zoom: 6,
+    settled: false,
+  });
+}
+
+function updateMapCard({ latitude, longitude, settled, source }) {
+  elements.hazeMapCoordinates.textContent = formatCoordinates({ latitude, longitude });
+  if (settled && ["drag", "click", "keyboard"].includes(source)) {
+    elements.hazeMapPlaceName.textContent = "Pinned location";
+  }
+}
+
+async function handleMapLocationPick({ latitude, longitude }) {
+  if (!isValidCoordinate(latitude, longitude)) return;
+  state.mapPickController?.abort();
+  const controller = new AbortController();
+  state.mapPickController = controller;
+  showMapLoading(true, "Finding this place…");
+  elements.hazeMapPlaceName.textContent = "Pinned location";
+
+  try {
+    const place = await reverseGeocode(latitude, longitude, controller.signal);
+    goToPlace(place, { focusMap: true });
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    goToPlace(
+      {
+        name: "Pinned location",
+        latitude,
+        longitude,
+      },
+      { focusMap: true },
+    );
+  } finally {
+    if (state.mapPickController === controller) {
+      state.mapPickController = null;
+      showMapLoading(false);
+    }
+  }
+}
+
+async function loadMapPoints(force = false) {
+  if (
+    !force &&
+    mapPointsCache &&
+    Date.now() - mapPointsCache.savedAt < MAP_CACHE_MS
+  ) {
+    applyMapPoints(mapPointsCache.rows, mapPointsCache.savedAt);
+    return;
+  }
+
+  state.mapController?.abort();
+  const controller = new AbortController();
+  state.mapController = controller;
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  elements.hazeMapDataStatus.textContent = "Loading map overlays…";
+  elements.hazeMapRetry.hidden = true;
+
+  try {
+    const data = await fetchJson(
+      buildRankingUrl(MALAYSIAN_MAP_POINTS),
+      controller.signal,
+    );
+    if (!Array.isArray(data)) throw new Error("Map response was not a list");
+
+    const rows = data
+      .map((result, index) => {
+        const aqi = Number(result.current?.us_aqi);
+        if (!MALAYSIAN_MAP_POINTS[index] || !Number.isFinite(aqi)) return null;
+        return {
+          ...MALAYSIAN_MAP_POINTS[index],
+          current: result.current,
+          aqi,
+          category: categoryForAqi(aqi),
+        };
+      })
+      .filter(Boolean);
+
+    if (!rows.length) throw new Error("No map estimates returned");
+    const savedAt = Date.now();
+    mapPointsCache = { rows, savedAt };
+    applyMapPoints(rows, savedAt);
+  } catch {
+    elements.hazeMapDataStatus.textContent = "Map overlays unavailable";
+    elements.hazeMapRetry.hidden = false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function applyMapPoints(rows, savedAt) {
+  state.mapPoints = rows;
+  state.map?.setPoints(rows);
+  elements.hazeMapDataStatus.textContent = `${rows.length} estimated areas · ${formatClockTime(
+    new Date(savedAt),
+  )}`;
+  elements.hazeMapRetry.hidden = true;
+}
+
+function showMapLoading(show, message = "Finding this place…") {
+  elements.hazeMapLoading.hidden = !show;
+  const caption = elements.hazeMapLoading.querySelector("span:last-child");
+  if (caption) caption.textContent = message;
 }
 
 async function loadHaze(location, options = {}) {
@@ -235,13 +406,9 @@ function renderHaze() {
   applyCategoryTheme(category);
   elements.hazeStatusCard.classList.remove("is-loading");
   elements.hazeStatusCard.setAttribute("aria-busy", "false");
-  elements.aqiValue.textContent = Math.round(aqi);
+  animateAqi(aqi);
   elements.aqiCategory.textContent = category.label;
   elements.aqiBandValue.textContent = category.label;
-  elements.aqiGauge.style.setProperty(
-    "--aqi-progress",
-    `${Math.min(aqi / 300, 1) * 360}deg`,
-  );
   elements.gaugeVerdict.textContent = category.verdict;
 
   elements.pm25Value.textContent = formatConcentration(current.pm2_5);
@@ -279,6 +446,7 @@ function renderHaze() {
 }
 
 function renderLoadingState() {
+  window.cancelAnimationFrame(state.aqiAnimationFrame);
   applyCategoryTheme(null);
   elements.hazeStatusCard.classList.add("is-loading");
   elements.hazeStatusCard.setAttribute("aria-busy", "true");
@@ -314,6 +482,8 @@ function renderLoadingState() {
 }
 
 function renderUnavailableState() {
+  window.cancelAnimationFrame(state.aqiAnimationFrame);
+  state.displayedAqi = 0;
   applyCategoryTheme(null);
   elements.hazeStatusCard.classList.remove("is-loading");
   elements.hazeStatusCard.setAttribute("aria-busy", "false");
@@ -337,6 +507,45 @@ function renderUnavailableState() {
   elements.chartSummary.textContent = "No air-quality forecast is available right now.";
   elements.aqiChart.innerHTML =
     '<p class="ranking-message">The air-quality estimate could not be loaded.</p>';
+}
+
+function animateAqi(targetAqi) {
+  window.cancelAnimationFrame(state.aqiAnimationFrame);
+  const target = Math.max(0, Number(targetAqi));
+  if (!Number.isFinite(target)) return;
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    state.displayedAqi = Math.round(target);
+    elements.aqiValue.textContent = state.displayedAqi;
+    elements.aqiGauge.style.setProperty(
+      "--aqi-progress",
+      `${Math.min(target / 300, 1) * 360}deg`,
+    );
+    return;
+  }
+
+  const from = Number(state.displayedAqi) || 0;
+  const startedAt = performance.now();
+  const duration = 900;
+
+  const tick = (now) => {
+    const progress = Math.min((now - startedAt) / duration, 1);
+    const eased = 1 - (1 - progress) ** 3;
+    const current = from + (target - from) * eased;
+    elements.aqiValue.textContent = Math.round(current);
+    elements.aqiGauge.style.setProperty(
+      "--aqi-progress",
+      `${Math.min(current / 300, 1) * 360}deg`,
+    );
+    if (progress < 1) {
+      state.aqiAnimationFrame = requestAnimationFrame(tick);
+    } else {
+      state.displayedAqi = Math.round(target);
+      state.aqiAnimationFrame = null;
+    }
+  };
+
+  state.aqiAnimationFrame = requestAnimationFrame(tick);
 }
 
 function applyCategoryTheme(category) {
@@ -473,7 +682,7 @@ function renderChart() {
       </defs>
       ${gridLines}
       ${thresholds}
-      <path d="${areaPath}" fill="url(#aqiAreaFill)"></path>
+      <path class="chart-area" d="${areaPath}" fill="url(#aqiAreaFill)"></path>
       <path class="chart-line" d="${linePath}"></path>
       <line class="chart-now" x1="${padding.left}" y1="${padding.top}" x2="${
         padding.left
@@ -558,6 +767,7 @@ function renderCityRanking(rows, savedAt) {
       locationKey(city) === currentKey ? " is-current" : ""
     }`;
     row.style.setProperty("--city-color", city.category.color);
+    row.style.setProperty("--row-index", index);
     row.setAttribute(
       "aria-label",
       `${city.name}, estimated AQI ${Math.round(city.aqi)}, ${city.category.label}. Show haze outlook.`,
@@ -640,8 +850,17 @@ function updateLocalTime() {
     : "Local time";
 }
 
-function goToPlace(place) {
-  loadHaze(place, { updateUrl: true, force: true });
+function goToPlace(place, options = {}) {
+  const normalized = normalizePlace(place);
+  loadHaze(normalized, { updateUrl: true, force: true });
+  if (state.map) {
+    const currentZoom = state.map.getCenter().zoom;
+    state.map.setCenter(normalized, {
+      zoom: options.focusMap ? 8 : Math.max(currentZoom, 7),
+    });
+  }
+  elements.hazeMapPlaceName.textContent = normalized.name;
+  elements.hazeMapCoordinates.textContent = formatCoordinates(normalized);
 }
 
 function locateUser() {
@@ -692,8 +911,11 @@ function locateUser() {
   );
 }
 
-async function reverseGeocode(latitude, longitude) {
+async function reverseGeocode(latitude, longitude, signal = undefined) {
   const controller = new AbortController();
+  const abortFromParent = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", abortFromParent, { once: true });
   const timeoutId = window.setTimeout(() => controller.abort(), 8_000);
   try {
     const params = new URLSearchParams({
@@ -715,6 +937,7 @@ async function reverseGeocode(latitude, longitude) {
     });
   } finally {
     window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromParent);
   }
 }
 

@@ -15,6 +15,8 @@ places to the top of the weather page.
 - Air quality from the Open-Meteo Air Quality API.
 - Malaysia haze page with estimated AQI, PM2.5, PM10, dominant pollutant, health guidance,
   a 48-hour forecast, and city ranking.
+- Interactive Malaysia haze map with translucent AQI heat zones, coloured index labels,
+  click/drag location picking, zoom, and reusable map search.
 - Alerts when the estimated Malaysia AQI category reaches Unhealthy or worse.
 - Search by city or region, with keyboard-friendly suggestions.
 - Interactive OpenStreetMap with click-to-center, drag-to-move, and zoom controls.
@@ -84,6 +86,7 @@ weatherly/
 ├── favicon.svg
 ├── haze.html                    # Malaysia haze and air-quality page
 ├── haze.js                      # Haze page data loading and UI
+├── haze-map.js                  # Dependency-free AQI heat map component
 ├── index.html
 ├── package.json
 ├── place-search.js              # Reusable debounced place autocomplete
