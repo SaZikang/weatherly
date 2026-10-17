@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "A live weather dashboard with pinned places and an interactive OpenStreetMap view.",
+  "description": "Weatherly live weather and Malaysia haze/air-quality dashboard.",
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "check": "node --check app.js && node --check place-search.js && node --check config.js && node --check server.mjs",
+    "check": "node --check app.js && node --check place-search.js && node --check air-quality.js && node --check haze.js && node --check config.js && node --check server.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {

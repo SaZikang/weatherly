@@ -1,7 +1,8 @@
 # Weatherly
 
-A live weather dashboard designed to run as a static website. Search for a city, pinpoint any
-location on the map, and pin favorite places to the top of the page.
+A two-page weather dashboard designed to run as a static website: live weather and a Malaysia
+haze/air-quality outlook. Search for a city, pinpoint any location on the map, and pin favorite
+places to the top of the weather page.
 
 ![No build step](https://img.shields.io/badge/build-none-203b2e)
 ![Open-Meteo](https://img.shields.io/badge/weather-Open--Meteo-3184a6)
@@ -12,6 +13,9 @@ location on the map, and pin favorite places to the top of the page.
 - Live current conditions, 24-hour forecast, and 7-day forecast.
 - Keyless weather data from [Open-Meteo](https://open-meteo.com/).
 - Air quality from the Open-Meteo Air Quality API.
+- Malaysia haze page with estimated AQI, PM2.5, PM10, dominant pollutant, health guidance,
+  a 48-hour forecast, and city ranking.
+- Alerts when the estimated Malaysia AQI category reaches Unhealthy or worse.
 - Search by city or region, with keyboard-friendly suggestions.
 - Interactive OpenStreetMap with click-to-center, drag-to-move, and zoom controls.
 - Favorites saved in `localStorage` and always shown in a pinned rail at the top.
@@ -29,6 +33,7 @@ npm run dev
 ```
 
 Open [http://127.0.0.1:4173](http://127.0.0.1:4173).
+The haze page is at [http://127.0.0.1:4173/haze.html](http://127.0.0.1:4173/haze.html).
 
 Python is another option:
 
@@ -73,14 +78,17 @@ is updated.
 ```text
 weatherly/
 ├── .github/workflows/pages.yml  # GitHub Pages deployment
+├── air-quality.js               # AQI bands, health guidance, and forecast helpers
 ├── app.js                       # Weather, favorites, and map logic
 ├── config.js                    # Repository URL and app defaults
 ├── favicon.svg
+├── haze.html                    # Malaysia haze and air-quality page
+├── haze.js                      # Haze page data loading and UI
 ├── index.html
 ├── package.json
 ├── place-search.js              # Reusable debounced place autocomplete
 ├── server.mjs                   # Dependency-free local static server
-├── tests/                       # Node tests for search helpers
+├── tests/                       # Node tests for search and air-quality helpers
 └── styles.css
 ```
 
@@ -90,6 +98,11 @@ Weather and search requests go directly from the browser to Open-Meteo. Map tile
 OpenStreetMap, and map clicks use BigDataCloud's free reverse-geocode client endpoint. No API keys
 or secrets are stored in this project. Favorites and temperature-unit preferences remain in the
 visitor's browser.
+
+The haze page uses Open-Meteo's modelled air-quality data, labelled as an estimate. Malaysia's
+official DOE APIMS service currently redirects to the MyEQMS portal and does not expose a public
+feed with cross-origin access for this static GitHub Pages site. Estimates must not replace
+official DOE, MOH, or local authority advisories.
 
 Please review the [Open-Meteo terms](https://open-meteo.com/en/terms), the
 [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/), and the

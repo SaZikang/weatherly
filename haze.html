@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Weatherly's Malaysia haze and air quality dashboard with estimated AQI, PM2.5, PM10, health guidance, forecasts, and city rankings."
+    />
+    <meta name="theme-color" content="#eef3ed" />
+    <meta property="og:title" content="Weatherly — Malaysia Haze & Air Quality" />
+    <meta
+      property="og:description"
+      content="Estimated Malaysia air quality, haze outlook, outdoor guidance, and cleanest-city rankings."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Weatherly — Malaysia Haze & Air Quality</title>
+    <script type="module" src="./haze.js"></script>
+  </head>
+  <body class="haze-page">
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Weatherly home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M25.4 8.4c.6 5.7 3.5 8.7 9.3 9.4-5.8.7-8.7 3.7-9.3 9.4-.6-5.7-3.5-8.7-9.3-9.4 5.8-.7 8.7-3.7 9.3-9.4Z"
+                fill="currentColor"
+              />
+              <path
+                d="M14.2 22.9c.4 4 2.4 6.1 6.5 6.6-4.1.5-6.1 2.6-6.5 6.6-.5-4-2.5-6.1-6.6-6.6 4.1-.5 6.1-2.6 6.6-6.6Z"
+                fill="currentColor"
+                opacity=".64"
+              />
+              <path
+                d="M33.2 28.5c.3 2.8 1.7 4.2 4.5 4.6-2.8.4-4.2 1.8-4.5 4.6-.4-2.8-1.8-4.2-4.6-4.6 2.8-.4 4.2-1.8 4.6-4.6Z"
+                fill="currentColor"
+                opacity=".38"
+              />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-name">weatherly</span>
+            <span class="brand-tagline">Malaysia haze &amp; air quality.</span>
+          </span>
+        </a>
+
+        <form class="search" id="searchForm" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <label class="sr-only" for="searchInput">Search air quality by city or place</label>
+          <input
+            id="searchInput"
+            name="q"
+            type="search"
+            placeholder="Search a Malaysian city or place"
+            autocomplete="off"
+            spellcheck="false"
+            aria-autocomplete="list"
+            aria-controls="searchResults"
+            aria-expanded="false"
+          />
+          <button class="search-submit" type="submit" aria-label="Search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6"></path>
+            </svg>
+          </button>
+          <div class="search-results" id="searchResults" role="listbox" hidden></div>
+        </form>
+
+        <div class="topbar-actions">
+          <button
+            class="icon-button"
+            id="locateButton"
+            type="button"
+            aria-label="Use my current location"
+            title="Use my current location"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.5"></circle>
+              <circle cx="12" cy="12" r="7.5"></circle>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+            </svg>
+          </button>
+          <button
+            class="icon-button"
+            id="refreshButton"
+            type="button"
+            aria-label="Refresh air quality"
+            title="Refresh air quality"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 7v5h-5"></path>
+              <path d="M18.3 16a8 8 0 1 1 .7-8l1 4"></path>
+            </svg>
+          </button>
+          <a
+            class="icon-button github-button"
+            id="githubLink"
+            href="https://github.com/SaZikang/weatherly"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open the project on GitHub"
+            title="Open on GitHub"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 2.8a9.2 9.2 0 0 0-2.9 17.9c.5.1.6-.2.6-.5v-1.9c-2.6.6-3.2-1.1-3.2-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.7.3-1.1.6-1.4-2.1-.2-4.3-1-4.3-4.6 0-1 .4-1.9 1-2.5-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a8.9 8.9 0 0 1 4.7 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.6 1 1.5 1 2.5 0 3.6-2.2 4.3-4.3 4.6.3.3.6.9.6 1.8v2.7c0 .3.2.6.6.5A9.2 9.2 0 0 0 12 2.8Z"
+              ></path>
+            </svg>
+          </a>
+        </div>
+      </header>
+
+      <nav class="page-nav" aria-label="Weatherly sections">
+        <a href="./">Weather</a>
+        <a class="is-active" href="./haze.html" aria-current="page">Haze &amp; Air</a>
+      </nav>
+
+      <main class="dashboard haze-dashboard">
+        <div class="status-banner haze-error-banner" id="hazeError" role="alert" hidden>
+          <span class="status-banner-icon" aria-hidden="true">!</span>
+          <p id="hazeErrorMessage">Air quality data is taking longer than usual.</p>
+          <button type="button" id="hazeErrorRetry">Try again</button>
+        </div>
+
+        <div class="haze-alert" id="hazeAlert" role="alert" hidden>
+          <span class="haze-alert-icon" aria-hidden="true">!</span>
+          <div>
+            <strong id="hazeAlertTitle">Air quality alert</strong>
+            <span id="hazeAlertText">Outdoor exposure is not advised.</span>
+          </div>
+        </div>
+
+        <section
+          class="panel haze-status-card haze-good is-loading"
+          id="hazeStatusCard"
+          aria-labelledby="hazePageTitle"
+          aria-busy="true"
+        >
+          <div class="haze-smoke" aria-hidden="true"></div>
+          <div class="haze-contours" aria-hidden="true"></div>
+
+          <div class="haze-status-top">
+            <div>
+              <p class="eyebrow">
+                <span class="live-dot" id="hazeLiveDot" aria-hidden="true"></span>
+                <span id="hazeLiveStatus">Loading air quality</span>
+              </p>
+              <h1 id="hazePageTitle">Haze &amp; Air Quality</h1>
+              <p class="location-meta">
+                <span id="hazeLocationName">Kuala Lumpur</span>
+                <span class="meta-divider" aria-hidden="true"></span>
+                <span id="hazeLocationMeta">Malaysia</span>
+                <span class="meta-divider" aria-hidden="true"></span>
+                <span id="hazeLocalTime">Local time</span>
+              </p>
+            </div>
+            <span class="estimate-badge">Estimated, not official DOE</span>
+          </div>
+
+          <div class="haze-reading">
+            <div class="aqi-index-block">
+              <span class="aqi-kicker">Current estimated AQI</span>
+              <div class="aqi-number-row">
+                <strong class="aqi-value" id="aqiValue">--</strong>
+                <span class="aqi-scale">/ 500</span>
+              </div>
+              <span class="aqi-category-pill" id="aqiCategory">Loading</span>
+              <p class="aqi-scale-copy">Colour band: Malaysia DOE categories</p>
+            </div>
+
+            <div class="haze-gauge" id="aqiGauge" aria-hidden="true">
+              <div class="haze-gauge-inner">
+                <span>Outdoor</span>
+                <strong id="gaugeVerdict">Checking</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="haze-metrics">
+            <article class="haze-metric">
+              <span class="metric-label">PM2.5</span>
+              <strong id="pm25Value">--</strong>
+              <small>µg/m³</small>
+            </article>
+            <article class="haze-metric">
+              <span class="metric-label">PM10</span>
+              <strong id="pm10Value">--</strong>
+              <small>µg/m³</small>
+            </article>
+            <article class="haze-metric">
+              <span class="metric-label">Dominant pollutant</span>
+              <strong id="dominantPollutant">--</strong>
+              <small id="dominantValue">Estimated sub-index</small>
+            </article>
+            <article class="haze-metric">
+              <span class="metric-label">Colour band</span>
+              <strong id="aqiBandValue">Waiting</strong>
+              <small>Malaysia scale</small>
+            </article>
+          </div>
+
+          <div class="haze-source-row">
+            <span>
+              Source:
+              <a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer"
+                >Open-Meteo Air Quality</a
+              >
+            </span>
+            <span id="hazeDataTime">Waiting for the latest estimate</span>
+          </div>
+          <p class="haze-footnote">
+            This is a modelled estimate, not a live DOE/APIMS station reading. Colour categories
+            follow Malaysia's published AQI bands.
+          </p>
+        </section>
+
+        <aside class="panel haze-verdict-card verdict-loading" id="verdictCard">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark">Practical guidance</p>
+              <h2>Can I go outside?</h2>
+            </div>
+            <span class="verdict-badge" id="verdictBadge">Checking</span>
+          </div>
+
+          <div class="verdict-hero">
+            <span class="verdict-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2.8 20 6v5.6c0 4.8-3.2 8.3-8 9.6-4.8-1.3-8-4.8-8-9.6V6l8-3.2Z"></path>
+                <path d="m8.2 12 2.4 2.4 5.2-5.2"></path>
+              </svg>
+            </span>
+            <div>
+              <h3 id="verdictValue">Checking conditions</h3>
+              <p id="verdictText">We are estimating the current outdoor risk for this location.</p>
+            </div>
+          </div>
+
+          <div class="health-groups">
+            <article>
+              <span class="health-group-icon" aria-hidden="true">CH</span>
+              <div>
+                <h4>Children</h4>
+                <p id="adviceChildren">Checking guidance…</p>
+              </div>
+            </article>
+            <article>
+              <span class="health-group-icon" aria-hidden="true">OA</span>
+              <div>
+                <h4>Older adults</h4>
+                <p id="adviceOlder">Checking guidance…</p>
+              </div>
+            </article>
+            <article>
+              <span class="health-group-icon" aria-hidden="true">HL</span>
+              <div>
+                <h4>Asthma, heart &amp; lung</h4>
+                <p id="adviceSensitive">Checking guidance…</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="guidance-list" aria-label="Outdoor precautions">
+            <div>
+              <span class="guidance-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 10a7 7 0 0 1 14 0v5H5v-5Z"></path>
+                  <path d="M8 15v2M16 15v2M5 13H3M21 13h-2"></path>
+                </svg>
+              </span>
+              <p id="guidanceMask">Checking mask guidance…</p>
+            </div>
+            <div>
+              <span class="guidance-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M13 3 6 13h5l-1 8 8-11h-5V3Z"></path>
+                </svg>
+              </span>
+              <p id="guidanceExercise">Checking outdoor activity guidance…</p>
+            </div>
+            <div>
+              <span class="guidance-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 5h16v14H4zM4 9h16M12 5v14"></path>
+                </svg>
+              </span>
+              <p id="guidanceWindows">Checking indoor air guidance…</p>
+            </div>
+          </div>
+
+          <p class="health-disclaimer">
+            General guidance only. Follow current MOH and DOE advice, and seek medical help if you
+            have breathing difficulty.
+          </p>
+        </aside>
+
+        <section class="panel haze-chart-panel" aria-labelledby="hazeChartTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark">Next 48 hours</p>
+              <h2 id="hazeChartTitle">Estimated AQI outlook</h2>
+            </div>
+            <span class="best-window" id="bestWindow">Finding the best window…</span>
+          </div>
+          <p class="chart-summary" id="chartSummary">
+            The forecast will show when air quality is expected to improve.
+          </p>
+          <div class="aqi-chart" id="aqiChart" aria-live="polite">
+            <div class="chart-skeleton"></div>
+          </div>
+          <div class="chart-legend" id="chartLegend" aria-label="Malaysia AQI colour bands">
+            <span><i class="good"></i>Good 0–50</span>
+            <span><i class="moderate"></i>Moderate 51–100</span>
+            <span><i class="unhealthy"></i>Unhealthy 101–200</span>
+            <span><i class="very-unhealthy"></i>Very unhealthy 201–300</span>
+            <span><i class="hazardous"></i>Hazardous 301+</span>
+          </div>
+        </section>
+
+        <section class="panel haze-ranking-panel" aria-labelledby="cityRankingTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark">Malaysia overview</p>
+              <h2 id="cityRankingTitle">Cleanest to worst</h2>
+            </div>
+            <span class="ranking-updated" id="rankingUpdated">Loading cities…</span>
+          </div>
+          <div class="city-ranking-list" id="cityRankingList" aria-live="polite">
+            <div class="city-row-skeleton"></div>
+            <div class="city-row-skeleton"></div>
+            <div class="city-row-skeleton"></div>
+            <div class="city-row-skeleton"></div>
+            <div class="city-row-skeleton"></div>
+            <div class="city-row-skeleton"></div>
+          </div>
+          <p class="ranking-note">
+            Ranked by estimated Open-Meteo AQI. Select a city to inspect its haze outlook.
+          </p>
+        </section>
+
+        <section class="panel haze-explainer" aria-labelledby="hazeExplainerTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow eyebrow-dark">Know what you are breathing</p>
+              <h2 id="hazeExplainerTitle">Haze, PM2.5 and PM10</h2>
+            </div>
+          </div>
+          <div class="haze-explainer-grid">
+            <article>
+              <span class="explainer-number">01</span>
+              <h3>What is haze?</h3>
+              <p>
+                Haze is a suspension of fine particles and smoke that reduces visibility and can
+                travel hundreds of kilometres across regions.
+              </p>
+            </article>
+            <article>
+              <span class="explainer-number">02</span>
+              <h3>Why particle size matters</h3>
+              <p>
+                PM10 includes dust and smoke particles up to 10 micrometres. PM2.5 is smaller and can
+                reach deep into the lungs, making it the bigger health concern.
+              </p>
+            </article>
+            <article>
+              <span class="explainer-number">03</span>
+              <h3>Common causes</h3>
+              <p>
+                In Malaysia, haze is often linked to peat and forest fires, agricultural burning,
+                traffic, industry, and smoke carried in by seasonal winds.
+              </p>
+            </article>
+          </div>
+          <details class="method-note">
+            <summary>About this data and the official service</summary>
+            <p>
+              Weatherly uses Open-Meteo's modelled air-quality data because the official DOE
+              APIMS/MyEQMS endpoints are not exposed for direct use by this static GitHub Pages
+              site. Values are estimates and should not replace official DOE, MOH, or local
+              authority advisories.
+            </p>
+          </details>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="footer-brand">
+          <span class="footer-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path
+                d="M25.4 8.4c.6 5.7 3.5 8.7 9.3 9.4-5.8.7-8.7 3.7-9.3 9.4-.6-5.7-3.5-8.7-9.3-9.4 5.8-.7 8.7-3.7 9.3-9.4Z"
+                fill="currentColor"
+              />
+              <path
+                d="M14.2 22.9c.4 4 2.4 6.1 6.5 6.6-4.1.5-6.1 2.6-6.5 6.6-.5-4-2.5-6.1-6.6-6.6 4.1-.5 6.1-2.6 6.6-6.6Z"
+                fill="currentColor"
+                opacity=".6"
+              />
+            </svg>
+          </span>
+          <span>weatherly</span>
+        </div>
+        <p>
+          Estimated air quality by
+          <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+          · Guidance is general information only
+        </p>
+        <a
+          class="footer-github"
+          id="footerGithubLink"
+          href="https://github.com/SaZikang/weatherly"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 2.8a9.2 9.2 0 0 0-2.9 17.9c.5.1.6-.2.6-.5v-1.9c-2.6.6-3.2-1.1-3.2-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.7.3-1.1.6-1.4-2.1-.2-4.3-1-4.3-4.6 0-1 .4-1.9 1-2.5-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a8.9 8.9 0 0 1 4.7 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.6 1 1.5 1 2.5 0 3.6-2.2 4.3-4.3 4.6.3.3.6.9.6 1.8v2.7c0 .3.2.6.6.5A9.2 9.2 0 0 0 12 2.8Z"
+            ></path>
+          </svg>
+          View source
+        </a>
+      </footer>
+    </div>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+    <div class="sr-only" id="screenReaderStatus" aria-live="polite"></div>
+
+    <noscript>
+      <div class="noscript">
+        Weatherly needs JavaScript enabled to load estimated air quality and the haze forecast.
+      </div>
+    </noscript>
+  </body>
+</html>
