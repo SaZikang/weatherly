@@ -111,6 +111,8 @@ input:focus-visible,
 }
 
 .topbar {
+  position: relative;
+  z-index: 60;
   display: grid;
   grid-template-columns: minmax(230px, 0.8fr) minmax(320px, 1.55fr) auto;
   gap: 26px;
@@ -174,6 +176,7 @@ input:focus-visible,
 
 .search {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   width: 100%;
@@ -254,7 +257,7 @@ input:focus-visible,
 }
 
 .search-submit svg,
-.map-search button svg {
+.map-search form > button svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -1123,7 +1126,7 @@ input:focus-visible,
   font-size: 12px;
 }
 
-.map-search button {
+.map-search form > button {
   display: grid;
   flex: none;
   width: 31px;
@@ -1137,7 +1140,7 @@ input:focus-visible,
   cursor: pointer;
 }
 
-.map-search button svg {
+.map-search form > button svg {
   width: 15px;
   height: 15px;
 }
@@ -1227,6 +1230,67 @@ input:focus-visible,
   color: #849089;
   font-size: 12px;
   text-align: center;
+}
+
+.search-state {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  padding: 11px 12px;
+  color: #718078;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.search-state-text {
+  flex: 1;
+}
+
+.search-state-icon {
+  display: grid;
+  flex: none;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: #5f7368;
+  background: #edf2ea;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.search-state-error {
+  color: #7a4a42;
+  background: #fdf3f0;
+  border-radius: 11px;
+}
+
+.search-state-error .search-state-icon {
+  color: #a34f40;
+  background: #f5dfd9;
+}
+
+.search-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(39, 68, 54, 0.18);
+  border-top-color: #294535;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.search-retry {
+  flex: none;
+  padding: 5px 8px;
+  color: #6e3c34;
+  background: #fff;
+  border: 1px solid #e6c8c1;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .weather-map {

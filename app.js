@@ -1,7 +1,7 @@
 import { APP_CONFIG } from "./config.js";
+import { createPlaceSearch } from "./place-search.js";
 
 const WEATHER_API = "https://api.open-meteo.com/v1/forecast";
-const GEOCODING_API = "https://geocoding-api.open-meteo.com/v1/search";
 const AIR_QUALITY_API = "https://air-quality-api.open-meteo.com/v1/air-quality";
 const REVERSE_GEOCODING_API = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -164,14 +164,14 @@ function init() {
   state.map.latitude = initialLocation.latitude;
   state.map.longitude = initialLocation.longitude;
 
-  setupSearch({
+  createPlaceSearch({
     input: elements.searchInput,
     results: elements.searchResults,
     form: elements.searchForm,
     onSelect: (place) => goToPlace(place),
   });
 
-  setupSearch({
+  createPlaceSearch({
     input: elements.mapSearchInput,
     results: elements.mapSearchResults,
     form: elements.mapSearchForm,
@@ -1003,210 +1003,6 @@ async function locateUser(options = {}) {
   );
 }
 
-function setupSearch({ input, results, form, onSelect }) {
-  let debounceTimer = null;
-  let searchController = null;
-  let searchRequestId = 0;
-  let items = [];
-  let highlightedIndex = -1;
-
-  const close = () => {
-    window.clearTimeout(debounceTimer);
-    searchRequestId += 1;
-    searchController?.abort();
-    results.hidden = true;
-    results.replaceChildren();
-    highlightedIndex = -1;
-    input.setAttribute("aria-expanded", "false");
-  };
-
-  const highlight = (index) => {
-    const buttons = $$(".search-result", results);
-    if (!buttons.length) return;
-    highlightedIndex = (index + buttons.length) % buttons.length;
-    buttons.forEach((button, buttonIndex) => {
-      const selected = buttonIndex === highlightedIndex;
-      button.classList.toggle("is-highlighted", selected);
-      button.setAttribute("aria-selected", String(selected));
-      if (selected) button.scrollIntoView({ block: "nearest" });
-    });
-  };
-
-  const select = (place) => {
-    window.clearTimeout(debounceTimer);
-    input.value = "";
-    close();
-    onSelect(place);
-  };
-
-  const renderItems = () => {
-    results.replaceChildren();
-    if (!items.length) {
-      const message = document.createElement("p");
-      message.className = "search-message";
-      message.textContent = "No matching places found. Try a broader search.";
-      results.append(message);
-      results.hidden = false;
-      input.setAttribute("aria-expanded", "true");
-      return;
-    }
-
-    items.forEach((place, index) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "search-result";
-      button.setAttribute("role", "option");
-      button.setAttribute("aria-selected", "false");
-
-      const icon = document.createElement("span");
-      icon.className = "search-result-icon";
-      icon.textContent = countryFlag(place.countryCode) || "◎";
-
-      const copy = document.createElement("span");
-      copy.className = "search-result-copy";
-      const name = document.createElement("strong");
-      name.textContent = place.name;
-      const detail = document.createElement("span");
-      detail.textContent = placeLabel(place);
-      copy.append(name, detail);
-
-      const arrow = document.createElement("span");
-      arrow.className = "search-result-arrow";
-      arrow.setAttribute("aria-hidden", "true");
-      arrow.textContent = "↗";
-
-      button.append(icon, copy, arrow);
-      button.addEventListener("mouseenter", () => highlight(index));
-      button.addEventListener("click", () => select(place));
-      results.append(button);
-    });
-
-    results.hidden = false;
-    input.setAttribute("aria-expanded", "true");
-    highlightedIndex = -1;
-  };
-
-  const executeSearch = async (query, shouldSelectFirst = false) => {
-    const text = query.trim();
-    if (!text) {
-      close();
-      return;
-    }
-
-    const requestId = ++searchRequestId;
-    searchController?.abort();
-
-    const coordinates = parseCoordinates(text);
-    if (coordinates) {
-      items = [
-        normalizePlace({
-          name: "Dropped pin",
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-        }),
-      ];
-      renderItems();
-      if (shouldSelectFirst) select(items[0]);
-      return;
-    }
-
-    if (text.length < 2) {
-      close();
-      return;
-    }
-
-    items = [];
-    highlightedIndex = -1;
-    searchController = new AbortController();
-    const timeoutId = window.setTimeout(() => searchController.abort(), 10_000);
-    results.hidden = false;
-    results.innerHTML = '<p class="search-message">Searching places…</p>';
-    input.setAttribute("aria-expanded", "true");
-
-    try {
-      const params = new URLSearchParams({
-        name: text,
-        count: "6",
-        language: "en",
-        format: "json",
-      });
-      const response = await fetch(`${GEOCODING_API}?${params}`, {
-        signal: searchController.signal,
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) throw new Error("Geocoding failed");
-      const data = await response.json();
-      if (requestId !== searchRequestId) return;
-      items = Array.isArray(data.results) ? data.results.map(normalizePlace) : [];
-      renderItems();
-      if (shouldSelectFirst && items[0]) select(items[0]);
-    } catch (error) {
-      if (requestId !== searchRequestId) return;
-      items = [];
-      results.innerHTML =
-        `<p class="search-message">${
-          error?.name === "AbortError"
-            ? "Place search took too long. Please try again."
-            : "Place search is unavailable right now. Check your connection."
-        }</p>`;
-      results.hidden = false;
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
-  };
-
-  input.addEventListener("input", () => {
-    window.clearTimeout(debounceTimer);
-    searchController?.abort();
-    searchRequestId += 1;
-    items = [];
-    highlightedIndex = -1;
-    const query = input.value;
-    if (query.trim().length < 2 && !parseCoordinates(query)) {
-      close();
-      return;
-    }
-    debounceTimer = window.setTimeout(() => executeSearch(query), 300);
-  });
-
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      close();
-      return;
-    }
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      highlight(highlightedIndex + 1);
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      highlight(highlightedIndex - 1);
-      return;
-    }
-    if (event.key === "Enter" && highlightedIndex >= 0 && items[highlightedIndex]) {
-      event.preventDefault();
-      select(items[highlightedIndex]);
-    }
-  });
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    window.clearTimeout(debounceTimer);
-    if (items[highlightedIndex]) {
-      select(items[highlightedIndex]);
-    } else if (items.length) {
-      select(items[0]);
-    } else {
-      executeSearch(input.value, true);
-    }
-  });
-
-  document.addEventListener("pointerdown", (event) => {
-    if (!form.contains(event.target)) close();
-  });
-}
-
 function setupMap() {
   const map = elements.weatherMap;
 
@@ -1623,16 +1419,6 @@ function cleanText(value, maxLength) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
-function parseCoordinates(value) {
-  const match = value
-    .trim()
-    .match(/^(-?\d+(?:\.\d+)?)\s*(?:,|\s)\s*(-?\d+(?:\.\d+)?)$/);
-  if (!match) return null;
-  const latitude = Number(match[1]);
-  const longitude = Number(match[2]);
-  return isValidCoordinate(latitude, longitude) ? { latitude, longitude } : null;
-}
-
 function isValidCoordinate(latitude, longitude) {
   return (
     Number.isFinite(latitude) &&
@@ -1776,12 +1562,6 @@ function formatClockTime(timeString) {
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "--";
   const suffix = hour >= 12 ? "PM" : "AM";
   return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
-
-function countryFlag(countryCode) {
-  const code = String(countryCode || "").toUpperCase();
-  if (!/^[A-Z]{2}$/.test(code)) return "";
-  return String.fromCodePoint(...[...code].map((character) => 127397 + character.charCodeAt(0)));
 }
 
 function aqiCategory(value) {

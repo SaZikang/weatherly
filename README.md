@@ -73,12 +73,14 @@ is updated.
 ```text
 weatherly/
 ├── .github/workflows/pages.yml  # GitHub Pages deployment
-├── app.js                       # Weather, search, favorites, and map logic
+├── app.js                       # Weather, favorites, and map logic
 ├── config.js                    # Repository URL and app defaults
 ├── favicon.svg
 ├── index.html
 ├── package.json
+├── place-search.js              # Reusable debounced place autocomplete
 ├── server.mjs                   # Dependency-free local static server
+├── tests/                       # Node tests for search helpers
 └── styles.css
 ```
 
