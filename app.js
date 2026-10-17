@@ -6,8 +6,8 @@ const AIR_QUALITY_API = "https://air-quality-api.open-meteo.com/v1/air-quality";
 const REVERSE_GEOCODING_API = "https://api.bigdatacloud.net/data/reverse-geocode-client";
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const STORAGE_KEYS = {
-  favorites: "codex-deepseek:favorites",
-  unit: "codex-deepseek:unit",
+  favorites: "weatherly:favorites",
+  unit: "weatherly:unit",
 };
 const TILE_SIZE = 256;
 const MAX_FAVORITES = 8;

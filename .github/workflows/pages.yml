@@ -1,4 +1,4 @@
-name: Deploy weather app to GitHub Pages
+name: Deploy Weatherly to GitHub Pages
 
 on:
   push:

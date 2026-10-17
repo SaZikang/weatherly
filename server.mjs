@@ -56,5 +56,5 @@ createServer(async (request, response) => {
     );
   }
 }).listen(port, host, () => {
-  console.log(`Codex DeepSeek is running at http://${host}:${port}`);
+  console.log(`Weatherly is running at http://${host}:${port}`);
 });

@@ -1,4 +1,4 @@
-# Codex DeepSeek Weather
+# Weatherly
 
 A live weather dashboard designed to run as a static website. Search for a city, pinpoint any
 location on the map, and pin favorite places to the top of the page.
@@ -42,9 +42,9 @@ Geolocation requires `localhost` or an HTTPS deployment.
 ## Connect this project to GitHub
 
 The local folder is already a Git repository with the intended remote configured as
-`https://github.com/SaZikang/codex-deepseek.git`.
+`https://github.com/SaZikang/weatherly.git`.
 
-1. Create an empty, public repository named `codex-deepseek` at
+1. Create an empty, public repository named `weatherly` at
    [github.com/new](https://github.com/new). Do not initialize it with a README.
 2. Authenticate GitHub CLI if needed:
 
@@ -71,7 +71,7 @@ is updated.
 ## Project structure
 
 ```text
-codex-deepseek/
+weatherly/
 ├── .github/workflows/pages.yml  # GitHub Pages deployment
 ├── app.js                       # Weather, search, favorites, and map logic
 ├── config.js                    # Repository URL and app defaults

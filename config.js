@@ -3,7 +3,7 @@
  * The app is fully static, so no environment variables or build step are needed.
  */
 export const APP_CONFIG = {
-  repositoryUrl: "https://github.com/SaZikang/codex-deepseek",
+  repositoryUrl: "https://github.com/SaZikang/weatherly",
   refreshIntervalMs: 10 * 60 * 1000,
   defaultLocation: {
     name: "Kuala Lumpur",
