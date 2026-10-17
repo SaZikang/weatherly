@@ -128,6 +128,7 @@ const elements = {
 const state = {
   location: { ...APP_CONFIG.defaultLocation },
   weather: null,
+  weatherLocation: null,
   airQuality: null,
   favorites: loadFavorites(),
   unit: loadUnit(),
@@ -312,8 +313,12 @@ function renderUnits() {
 function readLocationFromUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const latitude = Number(params.get("lat"));
-    const longitude = Number(params.get("lon"));
+    const latitudeValue = params.get("lat");
+    const longitudeValue = params.get("lon");
+    if (latitudeValue === null || longitudeValue === null) return null;
+    if (!latitudeValue.trim() || !longitudeValue.trim()) return null;
+    const latitude = Number(latitudeValue);
+    const longitude = Number(longitudeValue);
     if (!isValidCoordinate(latitude, longitude)) return null;
     return normalizePlace({
       name: cleanText(params.get("name"), 80) || "Pinned location",
@@ -348,6 +353,11 @@ async function loadWeather(location, options = {}) {
   const place = normalizePlace(location);
   if (!isValidCoordinate(place.latitude, place.longitude)) return;
 
+  const isSameLoadedLocation =
+    Boolean(state.weather) &&
+    Boolean(state.weatherLocation) &&
+    locationKey(place) === locationKey(state.weatherLocation);
+
   const requestId = ++state.weatherRequestId;
   state.weatherController?.abort();
   const controller = new AbortController();
@@ -360,6 +370,12 @@ async function loadWeather(location, options = {}) {
   updateFavoriteControls();
   setLoading(true);
   if (!options.silentRefresh) hideStatus();
+  if (!isSameLoadedLocation) {
+    state.weather = null;
+    state.airQuality = null;
+    state.lastUpdated = null;
+    renderWeatherSkeleton(place);
+  }
 
   if (!options.keepMap) {
     const distance = Math.abs(place.latitude - state.map.latitude) + Math.abs(place.longitude - state.map.longitude);
@@ -392,6 +408,7 @@ async function loadWeather(location, options = {}) {
       latitude: Number(state.weather.latitude) || place.latitude,
       longitude: Number(state.weather.longitude) || place.longitude,
     };
+    state.weatherLocation = { ...state.location };
     state.mapDraft = { ...state.location };
 
     renderWeather();
@@ -507,6 +524,31 @@ function renderLocationChrome() {
   elements.locationRegion.textContent = region || formatCoordinatesShort(location);
   elements.nowCard.dataset.location = locationKey(location);
   renderFavorites();
+}
+
+function renderWeatherSkeleton(place) {
+  applyWeatherTheme("cloudy", true);
+  elements.heroArt.innerHTML = weatherArt("cloudy", true);
+  elements.conditionLabel.textContent = "Loading live conditions";
+  elements.currentTemp.textContent = "--";
+  elements.temperatureUnit.textContent = state.unit === "fahrenheit" ? "°F" : "°C";
+  elements.feelsLike.textContent = "--°";
+  elements.highLow.textContent = "H --°  L --°";
+  elements.humidityValue.textContent = "--%";
+  elements.windValue.textContent = "-- km/h";
+  elements.rainValue.textContent = "--%";
+  elements.uvValue.textContent = "--";
+  elements.pressureValue.textContent = "-- hPa";
+  elements.visibilityValue.textContent = "-- km";
+  elements.weatherNarrative.textContent = `Requesting live conditions for ${place.name}.`;
+  elements.airQuality.hidden = true;
+  elements.hourlyDate.textContent = "Today";
+  elements.sunNote.textContent = "Sunrise -- · Sunset --";
+  elements.updatedTime.textContent = "Requesting the latest conditions";
+  elements.hourlyList.innerHTML =
+    '<div class="hourly-skeleton"></div><div class="hourly-skeleton"></div><div class="hourly-skeleton"></div><div class="hourly-skeleton"></div><div class="hourly-skeleton"></div>';
+  elements.dailyList.innerHTML =
+    '<div class="daily-skeleton"></div><div class="daily-skeleton"></div><div class="daily-skeleton"></div><div class="daily-skeleton"></div>';
 }
 
 function renderWeather() {
@@ -969,6 +1011,9 @@ function setupSearch({ input, results, form, onSelect }) {
   let highlightedIndex = -1;
 
   const close = () => {
+    window.clearTimeout(debounceTimer);
+    searchRequestId += 1;
+    searchController?.abort();
     results.hidden = true;
     results.replaceChildren();
     highlightedIndex = -1;
@@ -988,6 +1033,7 @@ function setupSearch({ input, results, form, onSelect }) {
   };
 
   const select = (place) => {
+    window.clearTimeout(debounceTimer);
     input.value = "";
     close();
     onSelect(place);
@@ -1047,6 +1093,9 @@ function setupSearch({ input, results, form, onSelect }) {
       return;
     }
 
+    const requestId = ++searchRequestId;
+    searchController?.abort();
+
     const coordinates = parseCoordinates(text);
     if (coordinates) {
       items = [
@@ -1066,10 +1115,8 @@ function setupSearch({ input, results, form, onSelect }) {
       return;
     }
 
-    const requestId = ++searchRequestId;
     items = [];
     highlightedIndex = -1;
-    searchController?.abort();
     searchController = new AbortController();
     const timeoutId = window.setTimeout(() => searchController.abort(), 10_000);
     results.hidden = false;
@@ -1094,10 +1141,14 @@ function setupSearch({ input, results, form, onSelect }) {
       renderItems();
       if (shouldSelectFirst && items[0]) select(items[0]);
     } catch (error) {
-      if (requestId !== searchRequestId || error?.name === "AbortError") return;
+      if (requestId !== searchRequestId) return;
       items = [];
       results.innerHTML =
-        '<p class="search-message">Place search is unavailable right now. Check your connection.</p>';
+        `<p class="search-message">${
+          error?.name === "AbortError"
+            ? "Place search took too long. Please try again."
+            : "Place search is unavailable right now. Check your connection."
+        }</p>`;
       results.hidden = false;
     } finally {
       window.clearTimeout(timeoutId);
@@ -1106,6 +1157,8 @@ function setupSearch({ input, results, form, onSelect }) {
 
   input.addEventListener("input", () => {
     window.clearTimeout(debounceTimer);
+    searchController?.abort();
+    searchRequestId += 1;
     items = [];
     highlightedIndex = -1;
     const query = input.value;
@@ -1142,6 +1195,8 @@ function setupSearch({ input, results, form, onSelect }) {
     window.clearTimeout(debounceTimer);
     if (items[highlightedIndex]) {
       select(items[highlightedIndex]);
+    } else if (items.length) {
+      select(items[0]);
     } else {
       executeSearch(input.value, true);
     }
@@ -1462,8 +1517,8 @@ async function settleMapLocation(options = {}) {
       keepMap: true,
       updateUrl: true,
     });
-  } catch (error) {
-    if (requestId !== state.mapSettleRequestId || error?.name === "AbortError") return;
+  } catch {
+    if (requestId !== state.mapSettleRequestId) return;
     const fallback = normalizePlace({
       name: "Pinned location",
       latitude,
@@ -1513,7 +1568,11 @@ async function reverseGeocode(
 ) {
   const controller = new AbortController();
   const abortFromParent = () => controller.abort();
-  signal?.addEventListener("abort", abortFromParent, { once: true });
+  if (signal?.aborted) {
+    controller.abort();
+  } else {
+    signal?.addEventListener("abort", abortFromParent, { once: true });
+  }
   const timeoutId = window.setTimeout(() => controller.abort(), timeout);
 
   try {
