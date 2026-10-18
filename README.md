@@ -17,6 +17,9 @@ places to the top of the weather page.
   a 48-hour forecast, and city ranking.
 - Interactive Malaysia haze map with translucent AQI heat zones, coloured index labels,
   click/drag location picking, zoom, and reusable map search.
+- Light, dark, and system themes with a no-flash first paint and persisted choice.
+- Conditional weather scenes for clear day/night, clouds, rain, thunderstorms, snow, and haze.
+- Shareable location URLs, first-visit geolocation, count-up values, and themed map/chart colors.
 - Alerts when the estimated Malaysia AQI category reaches Unhealthy or worse.
 - Search by city or region, with keyboard-friendly suggestions.
 - Interactive OpenStreetMap with click-to-center, drag-to-move, and zoom controls.
@@ -88,10 +91,15 @@ weatherly/
 ├── haze.js                      # Haze page data loading and UI
 ├── haze-map.js                  # Dependency-free AQI heat map component
 ├── index.html
+├── og-weatherly.png             # Open Graph social preview
 ├── package.json
 ├── place-search.js              # Reusable debounced place autocomplete
 ├── server.mjs                   # Dependency-free local static server
 ├── tests/                       # Node tests for search and air-quality helpers
+├── theme-init.js                # Pre-paint theme selection
+├── theme.js                     # Light/dark/system theme picker
+├── theme.css                    # Central theme variables and dark overrides
+├── weather-animations.js        # Conditional GPU-friendly weather scenes
 └── styles.css
 ```
 

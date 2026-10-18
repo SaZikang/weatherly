@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "check": "node --check app.js && node --check place-search.js && node --check air-quality.js && node --check haze-map.js && node --check haze.js && node --check config.js && node --check server.mjs",
+    "check": "node --check app.js && node --check place-search.js && node --check air-quality.js && node --check haze-map.js && node --check haze.js && node --check theme-init.js && node --check theme.js && node --check weather-animations.js && node --check config.js && node --check server.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {

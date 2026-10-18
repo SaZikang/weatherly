@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildAirQualityUrl,
   categoryForAqi,
+  categoryForPm25,
   dominantPollutant,
   findBestOutdoorWindow,
   formatBestWindow,
@@ -20,6 +21,14 @@ test("applies the requested Malaysia AQI colour bands", () => {
   assert.equal(categoryForAqi(201).key, "very-unhealthy");
   assert.equal(categoryForAqi(300).key, "very-unhealthy");
   assert.equal(categoryForAqi(301).key, "hazardous");
+});
+
+test("maps PM2.5 concentrations to a health band", () => {
+  assert.equal(categoryForPm25(8).key, "good");
+  assert.equal(categoryForPm25(20).key, "moderate");
+  assert.equal(categoryForPm25(45).key, "unhealthy");
+  assert.equal(categoryForPm25(100).key, "very-unhealthy");
+  assert.equal(categoryForPm25(180).key, "hazardous");
 });
 
 test("selects the pollutant with the highest estimated sub-index", () => {

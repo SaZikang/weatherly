@@ -1,5 +1,7 @@
 import { APP_CONFIG } from "./config.js";
 import { createPlaceSearch } from "./place-search.js";
+import { initThemePicker } from "./theme.js";
+import { createWeatherScene } from "./weather-animations.js";
 
 const WEATHER_API = "https://api.open-meteo.com/v1/forecast";
 const AIR_QUALITY_API = "https://air-quality-api.open-meteo.com/v1/air-quality";
@@ -8,6 +10,7 @@ const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const STORAGE_KEYS = {
   favorites: "weatherly:favorites",
   unit: "weatherly:unit",
+  locationAsked: "weatherly:location-asked",
 };
 const TILE_SIZE = 256;
 const MAX_FAVORITES = 8;
@@ -74,6 +77,7 @@ const elements = {
   refreshButton: $("#refreshButton"),
   githubLink: $("#githubLink"),
   footerGithubLink: $("#footerGithubLink"),
+  themeButton: $("#themeButton"),
   unitButtons: $$("[data-unit]"),
   favoritesList: $("#favoritesList"),
   favoriteButton: $("#favoriteButton"),
@@ -81,6 +85,7 @@ const elements = {
   statusMessage: $("#statusMessage"),
   statusRetry: $("#statusRetry"),
   nowCard: $("#nowCard"),
+  weatherScene: $("#weatherScene"),
   liveDot: $("#liveDot"),
   liveStatus: $("#liveStatus"),
   locationName: $("#locationName"),
@@ -141,6 +146,7 @@ const state = {
   mapSettleController: null,
   mapSettleRequestId: 0,
   mapDraft: null,
+  unitSwapTimer: null,
   map: {
     latitude: APP_CONFIG.defaultLocation.latitude,
     longitude: APP_CONFIG.defaultLocation.longitude,
@@ -152,11 +158,16 @@ const state = {
   },
 };
 
+let weatherSceneController = null;
+const numberAnimations = new WeakMap();
+
 init();
 
 function init() {
   elements.githubLink.href = APP_CONFIG.repositoryUrl;
   elements.footerGithubLink.href = APP_CONFIG.repositoryUrl;
+  initThemePicker(elements.themeButton);
+  weatherSceneController = createWeatherScene(elements.weatherScene);
 
   const initialLocation = readLocationFromUrl() || { ...APP_CONFIG.defaultLocation };
   state.location = initialLocation;
@@ -187,6 +198,7 @@ function init() {
   renderMapLabels();
   updateClockAndFreshness();
   loadWeather(state.location, { updateUrl: true });
+  maybeRequestFirstVisitLocation();
 
   window.setInterval(updateClockAndFreshness, 30_000);
   window.setInterval(() => {
@@ -217,11 +229,20 @@ function setupInteractions() {
       state.unit = nextUnit;
       saveUnit(nextUnit);
       renderUnits();
-      if (state.weather) {
-        renderWeather();
-      } else {
-        elements.temperatureUnit.textContent = state.unit === "fahrenheit" ? "°F" : "°C";
-      }
+      window.clearTimeout(state.unitSwapTimer);
+      const temperatureRow = $(".temperature-row", elements.nowCard);
+      temperatureRow.classList.remove("is-unit-swapping");
+      void temperatureRow.offsetWidth;
+      temperatureRow.classList.add("is-unit-swapping");
+      state.unitSwapTimer = window.setTimeout(() => {
+        if (state.weather) {
+          renderWeather();
+        } else {
+          elements.temperatureUnit.textContent =
+            state.unit === "fahrenheit" ? "°F" : "°C";
+        }
+        window.setTimeout(() => temperatureRow.classList.remove("is-unit-swapping"), 260);
+      }, 135);
     });
   });
 
@@ -488,6 +509,7 @@ function setLoading(isLoading) {
   elements.refreshButton.classList.toggle("is-loading", isLoading);
   elements.refreshButton.disabled = isLoading;
   elements.nowCard.setAttribute("aria-busy", String(isLoading));
+  elements.nowCard.classList.toggle("is-loading", isLoading);
   if (isLoading) {
     elements.liveStatus.textContent = "Updating live weather";
     elements.liveDot.classList.remove("is-offline");
@@ -568,38 +590,54 @@ function renderWeather() {
   applyWeatherTheme(info.kind, isDay);
   elements.heroArt.innerHTML = weatherArt(info.kind, isDay);
   elements.conditionLabel.textContent = info.label;
-  elements.currentTemp.textContent = temperatureNumber(current.temperature_2m);
   elements.temperatureUnit.textContent = state.unit === "fahrenheit" ? "°F" : "°C";
-  elements.feelsLike.textContent = temperatureText(current.apparent_temperature);
+  animateNumeric(
+    elements.currentTemp,
+    temperatureDisplayValue(current.temperature_2m),
+    (value) => String(Math.round(value)),
+  );
+  animateNumeric(
+    elements.feelsLike,
+    temperatureDisplayValue(current.apparent_temperature),
+    (value) => `${Math.round(value)}°`,
+  );
   elements.highLow.textContent = `H ${temperatureText(today.temperature_2m_max?.[0])}  L ${temperatureText(
     today.temperature_2m_min?.[0],
   )}`;
-  elements.humidityValue.textContent = Number.isFinite(Number(current.relative_humidity_2m))
-    ? `${Math.round(Number(current.relative_humidity_2m))}%`
-    : "--%";
+  animateNumeric(elements.humidityValue, current.relative_humidity_2m, (value) => {
+    return `${Math.round(value)}%`;
+  });
 
   const windDirection = Number(current.wind_direction_10m);
   const compass = windDirectionToCompass(windDirection);
-  elements.windValue.textContent = Number.isFinite(Number(current.wind_speed_10m))
-    ? `${round(current.wind_speed_10m)} km/h ${compass}`
-    : "-- km/h";
+  animateNumeric(
+    elements.windValue,
+    current.wind_speed_10m,
+    (value) => `${Math.round(value)} km/h ${compass}`.trim(),
+  );
   elements.windValue.title = Number.isFinite(Number(current.wind_gusts_10m))
     ? `Gusts up to ${round(current.wind_gusts_10m)} km/h`
     : "";
-  elements.rainValue.textContent = Number.isFinite(Number(rainChance))
-    ? `${Math.round(Number(rainChance))}%`
-    : "--%";
-  elements.uvValue.textContent = Number.isFinite(Number(today.uv_index_max?.[0]))
-    ? Number(today.uv_index_max[0]).toFixed(1)
-    : "--";
-  elements.pressureValue.textContent = Number.isFinite(Number(current.surface_pressure))
-    ? `${Math.round(Number(current.surface_pressure))} hPa`
-    : "-- hPa";
-  elements.visibilityValue.textContent = Number.isFinite(Number(current.visibility))
-    ? `${(Number(current.visibility) / 1000).toFixed(1)} km`
-    : "-- km";
+  animateNumeric(elements.rainValue, rainChance, (value) => `${Math.round(value)}%`);
+  animateNumeric(elements.uvValue, today.uv_index_max?.[0], (value) => value.toFixed(1));
+  animateNumeric(
+    elements.pressureValue,
+    current.surface_pressure,
+    (value) => `${Math.round(value)} hPa`,
+  );
+  animateNumeric(
+    elements.visibilityValue,
+    Number(current.visibility) / 1000,
+    (value) => `${value.toFixed(1)} km`,
+  );
 
-  elements.weatherNarrative.textContent = buildNarrative(info, current, today, state.location);
+  elements.weatherNarrative.textContent = buildNarrative(
+    info,
+    current,
+    today,
+    state.location,
+    hourly,
+  );
   elements.hourlyDate.textContent = formatFullDate(today.time?.[0]);
   elements.sunNote.textContent = `Sunrise ${formatClockTime(today.sunrise?.[0])} · Sunset ${formatClockTime(
     today.sunset?.[0],
@@ -765,46 +803,120 @@ function applyWeatherTheme(kind, isDay) {
     .filter((name) => name.startsWith("sky-"))
     .forEach((name) => elements.nowCard.classList.remove(name));
   elements.nowCard.classList.add(theme);
+  weatherSceneController?.setScene(kind, isDay);
 }
 
 function conditionFor(code) {
   return CONDITIONS[Number(code)] || { label: "Mixed skies", kind: "cloudy" };
 }
 
-function buildNarrative(info, current, daily, location) {
+function buildNarrative(info, current, daily, location, hourly = []) {
   const rainChance = Number(daily.precipitation_probability_max?.[0]);
   const humidity = Number(current.relative_humidity_2m);
   const temperature = Number(current.temperature_2m);
   const wind = Number(current.wind_speed_10m);
   const direction = windDirectionToCompass(Number(current.wind_direction_10m));
+  const upcomingRain = hourly
+    .slice(1, 13)
+    .find(
+      (hour) =>
+        Number(hour.precipitationProbability) >= 45 ||
+        [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(
+          Number(hour.weatherCode),
+        ),
+    );
+  const upcomingThunder = hourly
+    .slice(0, 13)
+    .find((hour) => [95, 96, 99].includes(Number(hour.weatherCode)));
 
   if (info.kind === "thunder") {
-    return "Thunderstorms are in the area. Keep an eye on the sky and plan indoor cover.";
+    return "Thunderstorms now — stay indoors if you can and avoid open ground.";
   }
   if (info.kind === "rain" || info.kind === "drizzle") {
-    return "Wet weather is happening now. A waterproof layer will earn its place today.";
+    return "Rain is falling now — bring an umbrella and allow extra travel time.";
   }
   if (info.kind === "snow") {
-    return "Snow is falling nearby. Expect slippery surfaces and bundle up.";
+    return "Snow is falling now — expect slippery surfaces and dress warmly.";
   }
   if (info.kind === "fog") {
-    return "Visibility is reduced. Take it slowly if you are heading out.";
+    return "Low visibility right now — take it slowly if you are driving.";
   }
-  if (Number.isFinite(rainChance) && rainChance >= 60) {
-    return `A ${Math.round(rainChance)}% chance of rain today, so keep an umbrella close.`;
+  if (upcomingThunder) {
+    return `Thunderstorms possible around ${formatHour(
+      upcomingThunder.time,
+    )} — plan indoor cover.`;
+  }
+  if (upcomingRain) {
+    return `Rain likely around ${formatHour(
+      upcomingRain.time,
+    )} — bring an umbrella.`;
+  }
+  if (Number.isFinite(rainChance) && rainChance >= 55) {
+    return `A ${Math.round(rainChance)}% chance of rain later — keep an umbrella close.`;
+  }
+  if (Number.isFinite(temperature) && temperature >= 32 && humidity >= 70) {
+    return "Hot and humid today — carry water and take breaks in the shade.";
   }
   if (Number.isFinite(temperature) && temperature >= 30 && humidity >= 70) {
-    return `Warm and humid in ${location.name}, with a ${direction} breeze at ${round(wind)} km/h.`;
+    return `Warm and humid with a ${direction} breeze — keep water nearby.`;
   }
   if (Number.isFinite(temperature) && temperature <= 8) {
-    return `A crisp ${temperatureText(temperature)} in ${location.name}. Layer up before heading out.`;
+    return `A crisp ${temperatureText(temperature)} — layer up before heading out.`;
   }
   if (info.kind === "clear") {
-    return `Clear skies over ${location.name}, with a gentle ${direction} breeze.`;
+    return `Clear skies over ${location.name} — good conditions to head outside.`;
   }
-  return `${info.label} over ${location.name}, with a high of ${temperatureText(
+  return `${info.label} over ${location.name} — high of ${temperatureText(
     daily.temperature_2m_max?.[0],
-  )} today.`;
+  )}, with a ${direction} breeze at ${round(wind)} km/h.`;
+}
+
+function animateNumeric(element, target, formatter, duration = 720) {
+  const nextFrame = numberAnimations.get(element);
+  if (nextFrame) cancelAnimationFrame(nextFrame);
+
+  const targetNumber = Number(target);
+  if (!Number.isFinite(targetNumber)) {
+    element.textContent = "--";
+    delete element.dataset.animatedValue;
+    numberAnimations.delete(element);
+    return;
+  }
+
+  const setValue = (value) => {
+    element.textContent = formatter(value);
+  };
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    setValue(targetNumber);
+    element.dataset.animatedValue = String(targetNumber);
+    numberAnimations.delete(element);
+    return;
+  }
+
+  const previous = Number(element.dataset.animatedValue);
+  const from = Number.isFinite(previous) ? previous : 0;
+  if (Math.abs(targetNumber - from) < 0.01) {
+    setValue(targetNumber);
+    element.dataset.animatedValue = String(targetNumber);
+    return;
+  }
+
+  const startedAt = performance.now();
+  const tick = (now) => {
+    const progress = Math.min((now - startedAt) / duration, 1);
+    const eased = 1 - (1 - progress) ** 3;
+    setValue(from + (targetNumber - from) * eased);
+    if (progress < 1) {
+      numberAnimations.set(element, requestAnimationFrame(tick));
+    } else {
+      setValue(targetNumber);
+      element.dataset.animatedValue = String(targetNumber);
+      numberAnimations.delete(element);
+    }
+  };
+
+  numberAnimations.set(element, requestAnimationFrame(tick));
 }
 
 function updateClockAndFreshness() {
@@ -900,6 +1012,10 @@ function toggleFavorite(place) {
   saveFavorites();
   renderFavorites();
   updateFavoriteControls();
+  elements.favoriteButton.classList.remove("is-bouncing");
+  void elements.favoriteButton.offsetWidth;
+  elements.favoriteButton.classList.add("is-bouncing");
+  window.setTimeout(() => elements.favoriteButton.classList.remove("is-bouncing"), 520);
   showToast(`${normalized.name} pinned to the top.`);
 }
 
@@ -993,13 +1109,39 @@ async function locateUser(options = {}) {
           : error.code === error.TIMEOUT
             ? "Your location took too long to find. Try searching for a city."
             : "Your location could not be found right now.";
-      if (!options.automatic) showToast(message, "error");
+      if (!options.automatic || options.smartStart) showToast(message, "error");
     },
     {
       enableHighAccuracy: false,
       timeout: 12_000,
       maximumAge: 5 * 60_000,
     },
+  );
+}
+
+async function maybeRequestFirstVisitLocation() {
+  if (readLocationFromUrl() || !navigator.geolocation) return;
+
+  try {
+    if (localStorage.getItem(STORAGE_KEYS.locationAsked)) return;
+    localStorage.setItem(STORAGE_KEYS.locationAsked, "true");
+  } catch {
+    // The app still requests location when storage is unavailable.
+  }
+
+  try {
+    const permission = await navigator.permissions?.query({ name: "geolocation" });
+    if (permission?.state === "denied") {
+      showToast("Using Kuala Lumpur. Allow location access or search for another city.");
+      return;
+    }
+  } catch {
+    // Some browsers do not expose the Permissions API for geolocation.
+  }
+
+  window.setTimeout(
+    () => locateUser({ automatic: true, smartStart: true }),
+    550,
   );
 }
 
@@ -1462,9 +1604,14 @@ function windDirectionToCompass(degrees) {
 }
 
 function temperatureNumber(celsius) {
+  const number = temperatureDisplayValue(celsius);
+  return Number.isFinite(number) ? String(Math.round(number)) : "--";
+}
+
+function temperatureDisplayValue(celsius) {
   const number = Number(celsius);
-  if (!Number.isFinite(number)) return "--";
-  return String(Math.round(state.unit === "fahrenheit" ? (number * 9) / 5 + 32 : number));
+  if (!Number.isFinite(number)) return Number.NaN;
+  return state.unit === "fahrenheit" ? (number * 9) / 5 + 32 : number;
 }
 
 function temperatureText(celsius) {

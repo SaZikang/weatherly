@@ -1,10 +1,13 @@
 import { APP_CONFIG } from "./config.js";
 import { createAqiMap } from "./haze-map.js";
 import { createPlaceSearch } from "./place-search.js";
+import { initThemePicker } from "./theme.js";
+import { createWeatherScene } from "./weather-animations.js";
 import {
   buildAirQualityUrl,
   buildRankingUrl,
   categoryForAqi,
+  categoryForPm25,
   dominantPollutant,
   findBestOutdoorWindow,
   formatBestWindow,
@@ -19,6 +22,7 @@ const REQUEST_TIMEOUT = 15_000;
 const AIR_CACHE_MS = 5 * 60_000;
 const RANKING_CACHE_MS = 10 * 60_000;
 const MAP_CACHE_MS = 10 * 60_000;
+const LOCATION_ASKED_KEY = "weatherly:location-asked";
 const MALAYSIA_MAP_CENTER = { latitude: 4.2, longitude: 109.2 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -31,6 +35,7 @@ const elements = {
   refreshButton: $("#refreshButton"),
   githubLink: $("#githubLink"),
   footerGithubLink: $("#footerGithubLink"),
+  themeButton: $("#themeButton"),
   hazeError: $("#hazeError"),
   hazeErrorMessage: $("#hazeErrorMessage"),
   hazeErrorRetry: $("#hazeErrorRetry"),
@@ -38,6 +43,7 @@ const elements = {
   hazeAlertTitle: $("#hazeAlertTitle"),
   hazeAlertText: $("#hazeAlertText"),
   hazeStatusCard: $("#hazeStatusCard"),
+  hazeWeatherScene: $("#hazeWeatherScene"),
   hazeLiveDot: $("#hazeLiveDot"),
   hazeLiveStatus: $("#hazeLiveStatus"),
   hazeLocationName: $("#hazeLocationName"),
@@ -48,6 +54,7 @@ const elements = {
   aqiGauge: $("#aqiGauge"),
   gaugeVerdict: $("#gaugeVerdict"),
   pm25Value: $("#pm25Value"),
+  pm25Unit: $("#pm25Unit"),
   pm10Value: $("#pm10Value"),
   dominantPollutant: $("#dominantPollutant"),
   dominantValue: $("#dominantValue"),
@@ -106,6 +113,7 @@ const state = {
   mapPickController: null,
   aqiAnimationFrame: null,
   displayedAqi: 0,
+  weatherScene: null,
 };
 
 const airCache = new Map();
@@ -117,6 +125,9 @@ init();
 function init() {
   elements.githubLink.href = APP_CONFIG.repositoryUrl;
   elements.footerGithubLink.href = APP_CONFIG.repositoryUrl;
+  initThemePicker(elements.themeButton);
+  state.weatherScene = createWeatherScene(elements.hazeWeatherScene);
+  state.weatherScene.setScene("fog", true);
 
   const initialLocation = readLocationFromUrl() || { ...APP_CONFIG.defaultLocation };
   state.location = normalizePlace(initialLocation);
@@ -142,6 +153,7 @@ function init() {
   loadHaze(state.location, { updateUrl: true });
   loadCityRanking();
   loadMapPoints();
+  maybeRequestFirstVisitLocation();
 
   window.setInterval(updateLocalTime, 30_000);
   window.setInterval(() => {
@@ -413,6 +425,15 @@ function renderHaze() {
 
   elements.pm25Value.textContent = formatConcentration(current.pm2_5);
   elements.pm10Value.textContent = formatConcentration(current.pm10);
+  const pm25Band =
+    categoryForAqi(current.us_aqi_pm2_5) ||
+    categoryForPm25(current.pm2_5) ||
+    category;
+  const pm25Metric = elements.pm25Value.closest(".haze-metric");
+  pm25Metric.classList.add("is-band-coded");
+  pm25Metric.style.setProperty("--band-color", pm25Band.color);
+  pm25Metric.title = `PM2.5 ${formatConcentration(current.pm2_5)} µg/m³ · ${pm25Band.label} health band`;
+  elements.pm25Unit.textContent = `µg/m³ · ${pm25Band.label} band`;
 
   const dominant = dominantPollutant(current);
   elements.dominantPollutant.textContent = dominant?.label || "Mixed pollutants";
@@ -454,6 +475,8 @@ function renderLoadingState() {
   elements.aqiCategory.textContent = "Loading";
   elements.aqiBandValue.textContent = "Waiting";
   elements.pm25Value.textContent = "--";
+  elements.pm25Unit.textContent = "µg/m³";
+  elements.pm25Value.closest(".haze-metric")?.classList.remove("is-band-coded");
   elements.pm10Value.textContent = "--";
   elements.dominantPollutant.textContent = "--";
   elements.dominantValue.textContent = "Estimated sub-index";
@@ -491,6 +514,8 @@ function renderUnavailableState() {
   elements.aqiCategory.textContent = "Unavailable";
   elements.aqiBandValue.textContent = "No estimate";
   elements.pm25Value.textContent = "--";
+  elements.pm25Unit.textContent = "µg/m³";
+  elements.pm25Value.closest(".haze-metric")?.classList.remove("is-band-coded");
   elements.pm10Value.textContent = "--";
   elements.dominantPollutant.textContent = "--";
   elements.dominantValue.textContent = "No estimate";
@@ -588,10 +613,10 @@ function renderAlert(category, advice) {
 
 function renderChart() {
   const data = state.airQuality;
-  const series = hourlyWindow(data, 48).filter((point) => Number.isFinite(point.aqi));
+  const series = hourlyWindow(data, 24).filter((point) => Number.isFinite(point.aqi));
   if (series.length < 2) {
     elements.aqiChart.innerHTML =
-      '<p class="ranking-message">The 48-hour forecast is unavailable.</p>';
+      '<p class="ranking-message">The 24-hour forecast is unavailable.</p>';
     elements.bestWindow.textContent = "Forecast unavailable";
     return;
   }
@@ -666,18 +691,18 @@ function renderChart() {
 
   const lowest = Math.min(...series.map((point) => point.aqi));
   const highest = Math.max(...series.map((point) => point.aqi));
-  elements.chartSummary.textContent = `48-hour range: ${Math.round(
+  elements.chartSummary.textContent = `24-hour range: ${Math.round(
     lowest,
   )} to ${Math.round(highest)} estimated AQI. Coloured lines mark Malaysia's category thresholds.`;
 
   elements.aqiChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Estimated AQI for the next 48 hours, ranging from ${Math.round(
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Estimated AQI for the next 24 hours, ranging from ${Math.round(
       lowest,
     )} to ${Math.round(highest)}.">
       <defs>
         <linearGradient id="aqiAreaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#466d58" stop-opacity=".2"></stop>
-          <stop offset="100%" stop-color="#466d58" stop-opacity="0"></stop>
+          <stop class="aqi-area-stop" offset="0%" stop-color="#466d58" stop-opacity=".2"></stop>
+          <stop class="aqi-area-stop" offset="100%" stop-color="#466d58" stop-opacity="0"></stop>
         </linearGradient>
       </defs>
       ${gridLines}
@@ -863,7 +888,7 @@ function goToPlace(place, options = {}) {
   elements.hazeMapCoordinates.textContent = formatCoordinates(normalized);
 }
 
-function locateUser() {
+function locateUser(options = {}) {
   if (!navigator.geolocation) {
     showToast("This browser does not support location access.", "error");
     return;
@@ -871,7 +896,7 @@ function locateUser() {
 
   elements.locateButton.disabled = true;
   elements.locateButton.setAttribute("aria-busy", "true");
-  showToast("Finding your location…");
+  if (!options.automatic) showToast("Finding your location…");
 
   navigator.geolocation.getCurrentPosition(
     async (position) => {
@@ -880,7 +905,9 @@ function locateUser() {
       try {
         const place = await reverseGeocode(latitude, longitude);
         goToPlace(place);
-        showToast("Location found. Loading the local haze estimate.");
+        if (!options.automatic) {
+          showToast("Location found. Loading the local haze estimate.");
+        }
       } catch {
         goToPlace({
           name: "Current location",
@@ -901,13 +928,39 @@ function locateUser() {
           : error.code === error.TIMEOUT
             ? "Your location took too long to find. Try the search bar instead."
             : "Your location could not be found right now.";
-      showToast(message, "error");
+      if (!options.automatic || options.smartStart) showToast(message, "error");
     },
     {
       enableHighAccuracy: false,
       timeout: 12_000,
       maximumAge: 5 * 60_000,
     },
+  );
+}
+
+async function maybeRequestFirstVisitLocation() {
+  if (readLocationFromUrl() || !navigator.geolocation) return;
+
+  try {
+    if (localStorage.getItem(LOCATION_ASKED_KEY)) return;
+    localStorage.setItem(LOCATION_ASKED_KEY, "true");
+  } catch {
+    // Continue to the permission request when storage is unavailable.
+  }
+
+  try {
+    const permission = await navigator.permissions?.query({ name: "geolocation" });
+    if (permission?.state === "denied") {
+      showToast("Using Kuala Lumpur. Allow location access or search for another city.");
+      return;
+    }
+  } catch {
+    // Fall through to the browser geolocation prompt.
+  }
+
+  window.setTimeout(
+    () => locateUser({ automatic: true, smartStart: true }),
+    550,
   );
 }
 

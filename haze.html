@@ -14,12 +14,20 @@
       content="Estimated Malaysia air quality, haze outlook, outdoor guidance, and cleanest-city rankings."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://sazikang.github.io/weatherly/og-weatherly.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://sazikang.github.io/weatherly/og-weatherly.png" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <script src="./theme-init.js"></script>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./theme.css" />
     <title>Weatherly — Malaysia Haze & Air Quality</title>
     <script type="module" src="./haze.js"></script>
   </head>
   <body class="haze-page">
+    <a class="skip-link" href="#hazeMain">Skip to haze content</a>
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
@@ -101,6 +109,18 @@
               <path d="M18.3 16a8 8 0 1 1 .7-8l1 4"></path>
             </svg>
           </button>
+          <button
+            class="icon-button theme-button"
+            id="themeButton"
+            type="button"
+            aria-label="Theme: System"
+            title="Theme: System"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+              <path d="M8 21h8M12 17v4"></path>
+            </svg>
+          </button>
           <a
             class="icon-button github-button"
             id="githubLink"
@@ -124,7 +144,7 @@
         <a class="is-active" href="./haze.html" aria-current="page">Haze &amp; Air</a>
       </nav>
 
-      <main class="dashboard haze-dashboard">
+      <main class="dashboard haze-dashboard" id="hazeMain">
         <div class="status-banner haze-error-banner" id="hazeError" role="alert" hidden>
           <span class="status-banner-icon" aria-hidden="true">!</span>
           <p id="hazeErrorMessage">Air quality data is taking longer than usual.</p>
@@ -145,6 +165,7 @@
           aria-labelledby="hazePageTitle"
           aria-busy="true"
         >
+          <div class="weather-scene haze-weather-scene" id="hazeWeatherScene" aria-hidden="true"></div>
           <div class="haze-smoke" aria-hidden="true"></div>
           <div class="haze-contours" aria-hidden="true"></div>
 
@@ -189,7 +210,7 @@
             <article class="haze-metric">
               <span class="metric-label">PM2.5</span>
               <strong id="pm25Value">--</strong>
-              <small>µg/m³</small>
+              <small id="pm25Unit">µg/m³</small>
             </article>
             <article class="haze-metric">
               <span class="metric-label">PM10</span>
@@ -423,8 +444,8 @@
         <section class="panel haze-chart-panel" aria-labelledby="hazeChartTitle">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow eyebrow-dark">Next 48 hours</p>
-              <h2 id="hazeChartTitle">Estimated AQI outlook</h2>
+              <p class="eyebrow eyebrow-dark">Next 24 hours</p>
+              <h2 id="hazeChartTitle">Estimated AQI trend</h2>
             </div>
             <span class="best-window" id="bestWindow">Finding the best window…</span>
           </div>
@@ -440,6 +461,21 @@
             <span><i class="unhealthy"></i>Unhealthy 101–200</span>
             <span><i class="very-unhealthy"></i>Very unhealthy 201–300</span>
             <span><i class="hazardous"></i>Hazardous 301+</span>
+          </div>
+          <div class="band-health-guide" aria-label="Short health advice for each AQI band">
+            <div class="band-good"><strong>Good</strong><span>Normal outdoor activity.</span></div>
+            <div class="band-moderate">
+              <strong>Moderate</strong><span>Sensitive groups should take it easier.</span>
+            </div>
+            <div class="band-unhealthy">
+              <strong>Unhealthy</strong><span>Limit outdoor time; use a fitted N95 if needed.</span>
+            </div>
+            <div class="band-very-unhealthy">
+              <strong>Very unhealthy</strong><span>Stay indoors and avoid exertion.</span>
+            </div>
+            <div class="band-hazardous">
+              <strong>Hazardous</strong><span>Avoid exposure and follow official emergency advice.</span>
+            </div>
           </div>
         </section>
 

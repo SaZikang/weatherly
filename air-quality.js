@@ -242,6 +242,16 @@ export function categoryForAqi(value) {
   return MALAYSIA_AQI_BANDS[4];
 }
 
+export function categoryForPm25(value) {
+  const concentration = Number(value);
+  if (!Number.isFinite(concentration)) return null;
+  if (concentration <= 12) return MALAYSIA_AQI_BANDS[0];
+  if (concentration <= 35) return MALAYSIA_AQI_BANDS[1];
+  if (concentration <= 55) return MALAYSIA_AQI_BANDS[2];
+  if (concentration <= 150) return MALAYSIA_AQI_BANDS[3];
+  return MALAYSIA_AQI_BANDS[4];
+}
+
 export function dominantPollutant(current = {}) {
   const candidates = DOMINANT_POLLUTANTS.map((pollutant) => ({
     ...pollutant,
